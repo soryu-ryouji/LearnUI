@@ -2,10 +2,11 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 
 namespace LearnUI.PageScrollView
 {
-    public class PageScrollView : MonoBehaviour
+    public class PageScrollView : MonoBehaviour, IBeginDragHandler, IEndDragHandler
     {
         private List<RectTransform> _pageItems = new();
         [SerializeField] private ScrollRect _rect;
@@ -23,8 +24,9 @@ namespace LearnUI.PageScrollView
         }
 
         private bool _isScrolling;
-        [SerializeField] private float _scrollSpeed = 2f;
+        [SerializeField] private float _scrollTime = 2f;
         [SerializeField] private float _stopThreshold = 0.001f;
+        private IEnumerator _coroutine;
 
         private void InitView()
         {
@@ -37,11 +39,16 @@ namespace LearnUI.PageScrollView
 
         private void Update()
         {
-            if (Input.GetKeyDown(KeyCode.Return) && !_isScrolling) StartCoroutine(MoveTo(3));
-            if (Input.GetKeyDown(KeyCode.Space) && !_isScrolling) StartCoroutine(MoveTo(0));
-
-            if (Input.GetKeyDown(KeyCode.A) && !_isScrolling) StartCoroutine(MoveTo(CurrentPageIndex - 1));
-            if (Input.GetKeyDown(KeyCode.D) && !_isScrolling) StartCoroutine(MoveTo(CurrentPageIndex + 1));
+            if (Input.GetKeyDown(KeyCode.A) && !_isScrolling)
+            {
+                _coroutine = MoveTo(CurrentPageIndex - 1);
+                StartCoroutine(_coroutine);
+            }
+            if (Input.GetKeyDown(KeyCode.D) && !_isScrolling)
+            {
+                _coroutine = MoveTo(CurrentPageIndex + 1);
+                StartCoroutine(_coroutine);
+            }
         }
 
         private void Start()
@@ -59,9 +66,9 @@ namespace LearnUI.PageScrollView
             var targetPos = pageIndex * interval;
             float elapsed = 0f;
 
-            while (elapsed < _scrollSpeed)
+            while (elapsed < _scrollTime)
             {
-                var tempPos = Mathf.Lerp(_rect.horizontalNormalizedPosition, targetPos, elapsed / _scrollSpeed);
+                var tempPos = Mathf.Lerp(_rect.horizontalNormalizedPosition, targetPos, elapsed / _scrollTime);
                 _rect.horizontalNormalizedPosition = tempPos;
                 elapsed += Time.deltaTime;
 
@@ -76,6 +83,19 @@ namespace LearnUI.PageScrollView
 
             _rect.horizontalNormalizedPosition = targetPos;
             _isScrolling = false;
+        }
+
+        public void OnEndDrag(PointerEventData eventData)
+        {
+            StartCoroutine(MoveTo(CurrentPageIndex));
+        }
+
+        public void OnBeginDrag(PointerEventData eventData)
+        {
+            if (_isScrolling)
+            {
+                StopCoroutine(_coroutine);
+            }
         }
     }
 }
