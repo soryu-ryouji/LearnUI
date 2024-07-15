@@ -2,53 +2,46 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.EventSystems;
 
 namespace LearnUI.PageScrollView
 {
-    public class PageScrollView : MonoBehaviour, IBeginDragHandler, IEndDragHandler
+    public class PageScrollView : MonoBehaviour
     {
-        private List<RectTransform> _pageItems = new();
-        [SerializeField] private ScrollRect _rect;
-        [SerializeField] private GameObject _content;
+        private List<RectTransform> m_PageItems = new();
+        [SerializeField] private ScrollRect m_Rect;
+        [SerializeField] private GameObject m_Content;
         public int CurrentPageIndex
         {
             get
             {
-                if (_pageItems.Count == 0) return 0;
+                if (m_PageItems.Count == 0) return 0;
 
-                var interval = 1f / (_pageItems.Count - 1);
-                int index = Mathf.RoundToInt(_rect.horizontalNormalizedPosition / interval);
+                var interval = 1f / (m_PageItems.Count - 1);
+                int index = Mathf.RoundToInt(m_Rect.horizontalNormalizedPosition / interval);
                 return index;
             }
         }
 
-        private bool _isScrolling;
-        [SerializeField] private float _scrollTime = 2f;
-        [SerializeField] private float _stopThreshold = 0.001f;
-        private IEnumerator _coroutine;
+        private bool m_IsScrolling;
+        [SerializeField] private float m_ScrollSpeed = 2f;
+        [SerializeField] private float m_StopThreshold = 0.001f;
 
         private void InitView()
         {
-            _pageItems.Clear();
-            foreach (RectTransform item in _content.transform)
+            m_PageItems.Clear();
+            foreach (RectTransform item in m_Content.transform)
             {
-                _pageItems.Add(item);
+                m_PageItems.Add(item);
             }
         }
 
         private void Update()
         {
-            if (Input.GetKeyDown(KeyCode.A) && !_isScrolling)
-            {
-                _coroutine = MoveTo(CurrentPageIndex - 1);
-                StartCoroutine(_coroutine);
-            }
-            if (Input.GetKeyDown(KeyCode.D) && !_isScrolling)
-            {
-                _coroutine = MoveTo(CurrentPageIndex + 1);
-                StartCoroutine(_coroutine);
-            }
+            if (Input.GetKeyDown(KeyCode.Return) && !m_IsScrolling) StartCoroutine(MoveTo(3));
+            if (Input.GetKeyDown(KeyCode.Space) && !m_IsScrolling) StartCoroutine(MoveTo(0));
+
+            if (Input.GetKeyDown(KeyCode.A) && !m_IsScrolling) StartCoroutine(MoveTo(CurrentPageIndex - 1));
+            if (Input.GetKeyDown(KeyCode.D) && !m_IsScrolling) StartCoroutine(MoveTo(CurrentPageIndex + 1));
         }
 
         private void Start()
@@ -58,44 +51,31 @@ namespace LearnUI.PageScrollView
 
         public IEnumerator MoveTo(int pageIndex)
         {
-            if (pageIndex >= _pageItems.Count || pageIndex < 0) yield break;
+            if (pageIndex >= m_PageItems.Count || pageIndex < 0) yield break;
 
-            _isScrolling = true;
+            m_IsScrolling = true;
 
-            var interval = 1 / (_pageItems.Count - 1f);
+            var interval = 1 / (m_PageItems.Count - 1f);
             var targetPos = pageIndex * interval;
             float elapsed = 0f;
 
-            while (elapsed < _scrollTime)
+            while (elapsed < m_ScrollSpeed)
             {
-                var tempPos = Mathf.Lerp(_rect.horizontalNormalizedPosition, targetPos, elapsed / _scrollTime);
-                _rect.horizontalNormalizedPosition = tempPos;
+                var tempPos = Mathf.Lerp(m_Rect.horizontalNormalizedPosition, targetPos, elapsed / m_ScrollSpeed);
+                m_Rect.horizontalNormalizedPosition = tempPos;
                 elapsed += Time.deltaTime;
 
-                if (Mathf.Abs(_rect.horizontalNormalizedPosition - targetPos) < _stopThreshold)
+                if (Mathf.Abs(m_Rect.horizontalNormalizedPosition - targetPos) < m_StopThreshold)
                 {
-                    _rect.horizontalNormalizedPosition = targetPos;
+                    m_Rect.horizontalNormalizedPosition = targetPos;
                     break;
                 }
 
                 yield return null;
             }
 
-            _rect.horizontalNormalizedPosition = targetPos;
-            _isScrolling = false;
-        }
-
-        public void OnEndDrag(PointerEventData eventData)
-        {
-            StartCoroutine(MoveTo(CurrentPageIndex));
-        }
-
-        public void OnBeginDrag(PointerEventData eventData)
-        {
-            if (_isScrolling)
-            {
-                StopCoroutine(_coroutine);
-            }
+            m_Rect.horizontalNormalizedPosition = targetPos;
+            m_IsScrolling = false;
         }
     }
 }
