@@ -1,11 +1,12 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace LearnUI.PageScrollView
 {
-    public class PageScrollView : MonoBehaviour
+    public class PageScrollView : MonoBehaviour, IBeginDragHandler, IEndDragHandler
     {
         private List<PageScrollViewItem> m_PageItems = new();
         [SerializeField] private ScrollRect m_Rect;
@@ -31,6 +32,8 @@ namespace LearnUI.PageScrollView
         [SerializeField] private float m_ScrollSpeed = 2f;
         [SerializeField] private float m_StopThreshold = 0.001f;
 
+        private Coroutine move;
+
         private void InitView()
         {
             m_PageItems.Clear();
@@ -49,6 +52,18 @@ namespace LearnUI.PageScrollView
             if (Input.GetKeyDown(KeyCode.D) && !m_IsScrolling) StartCoroutine(MoveTo(CurrentPageIndex + 1));
 
             UpdateItemScale();
+
+            // if (!m_IsScrolling)
+            // {
+            //     // 四舍五入当前页面索引
+            //     int roundedPageIndex = Mathf.RoundToInt(CurrentPageIndex);
+
+            //     // 平滑滚动到四舍五入后的页面
+            //     if (roundedPageIndex != CurrentPageIndex)
+            //     {
+            //         move = StartCoroutine(MoveTo(roundedPageIndex));
+            //     }
+            // }
         }
 
         private void Start()
@@ -58,11 +73,12 @@ namespace LearnUI.PageScrollView
 
         public IEnumerator MoveTo(int pageIndex)
         {
-            if (pageIndex == CurrentPageIndex) yield break;
+            var interval = 1 / (m_PageItems.Count - 1f);
+
+            if (pageIndex == CurrentPageIndex && (m_Rect.horizontalNormalizedPosition % interval) == 0) yield break;
 
             m_IsScrolling = true;
 
-            var interval = 1 / (m_PageItems.Count - 1f);
             var targetPos = pageIndex * interval;
             float elapsed = 0f;
 
@@ -100,6 +116,23 @@ namespace LearnUI.PageScrollView
                     item.ScaleTo(scale);
                 }
             }
+        }
+
+        public void OnBeginDrag(PointerEventData eventData)
+        {
+            m_IsScrolling = true;
+
+            if (move != null)
+            {
+                StopCoroutine(move);
+            }
+        }
+
+        public void OnEndDrag(PointerEventData eventData)
+        {
+            m_IsScrolling = false;
+
+            move = StartCoroutine(MoveTo(CurrentPageIndex));
         }
     }
 }
