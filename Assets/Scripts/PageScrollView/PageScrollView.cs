@@ -7,7 +7,7 @@ namespace LearnUI.PageScrollView
 {
     public class PageScrollView : MonoBehaviour
     {
-        private List<RectTransform> m_PageItems = new();
+        private List<PageScrollViewItem> m_PageItems = new();
         [SerializeField] private ScrollRect m_Rect;
         [SerializeField] private GameObject m_Content;
         public int CurrentPageIndex
@@ -22,6 +22,11 @@ namespace LearnUI.PageScrollView
             }
         }
 
+        [SerializeField] private float m_ScaleDistance;
+        [SerializeField] private float m_MinScale;
+        [SerializeField] private float m_MaxScale;
+        [SerializeField] float spacing;
+
         private bool m_IsScrolling;
         [SerializeField] private float m_ScrollSpeed = 2f;
         [SerializeField] private float m_StopThreshold = 0.001f;
@@ -31,7 +36,7 @@ namespace LearnUI.PageScrollView
             m_PageItems.Clear();
             foreach (RectTransform item in m_Content.transform)
             {
-                m_PageItems.Add(item);
+                m_PageItems.Add(item.GetComponent<PageScrollViewItem>());
             }
         }
 
@@ -42,6 +47,8 @@ namespace LearnUI.PageScrollView
 
             if (Input.GetKeyDown(KeyCode.A) && !m_IsScrolling) StartCoroutine(MoveTo(CurrentPageIndex - 1));
             if (Input.GetKeyDown(KeyCode.D) && !m_IsScrolling) StartCoroutine(MoveTo(CurrentPageIndex + 1));
+
+            UpdateItemScale();
         }
 
         private void Start()
@@ -51,7 +58,7 @@ namespace LearnUI.PageScrollView
 
         public IEnumerator MoveTo(int pageIndex)
         {
-            if (pageIndex >= m_PageItems.Count || pageIndex < 0) yield break;
+            if (pageIndex == CurrentPageIndex) yield break;
 
             m_IsScrolling = true;
 
@@ -76,6 +83,23 @@ namespace LearnUI.PageScrollView
 
             m_Rect.horizontalNormalizedPosition = targetPos;
             m_IsScrolling = false;
+        }
+
+        private void UpdateItemScale()
+        {
+            foreach (var item in m_PageItems)
+            {
+                var distance = item.GetDistance(gameObject.GetComponent<RectTransform>());
+                if (Mathf.Abs(distance) >= m_ScaleDistance)
+                {
+                    item.ScaleTo(m_MinScale);
+                }
+                else
+                {
+                    var scale = Mathf.Lerp(m_MaxScale, m_MinScale, Mathf.Abs(distance) / m_ScaleDistance);
+                    item.ScaleTo(scale);
+                }
+            }
         }
     }
 }
