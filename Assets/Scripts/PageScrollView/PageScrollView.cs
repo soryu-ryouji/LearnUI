@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -11,17 +12,19 @@ namespace LearnUI.PageScrollView
         private List<PageScrollViewItem> m_PageItems = new();
         [SerializeField] private ScrollRect m_Rect;
         [SerializeField] private GameObject m_Content;
+
         public int CurrentPageIndex
         {
             get
             {
                 if (m_PageItems.Count == 0) return 0;
 
-                var interval = 1f / (m_PageItems.Count - 1);
-                int index = Mathf.RoundToInt(m_Rect.horizontalNormalizedPosition / interval);
+                int index = Mathf.RoundToInt(m_Rect.horizontalNormalizedPosition / Interval);
                 return index;
             }
         }
+
+        public float Interval => 1f / (m_PageItems.Count - 1);
 
         [SerializeField] private float m_ScaleDistance;
         [SerializeField] private float m_MinScale;
@@ -29,41 +32,22 @@ namespace LearnUI.PageScrollView
         [SerializeField] float spacing;
 
         private bool m_IsScrolling;
+
+        public bool IsScrolling { get { return m_IsScrolling; } }
+
         [SerializeField] private float m_ScrollSpeed = 2f;
         [SerializeField] private float m_StopThreshold = 0.001f;
 
-        private Coroutine move;
+        private Coroutine m_MoveCoroutine;
 
         private void InitView()
         {
-            m_PageItems.Clear();
-            foreach (RectTransform item in m_Content.transform)
-            {
-                m_PageItems.Add(item.GetComponent<PageScrollViewItem>());
-            }
+            m_PageItems = m_Content.GetComponentsInChildren<PageScrollViewItem>().ToList();
         }
 
         private void Update()
         {
-            if (Input.GetKeyDown(KeyCode.Return) && !m_IsScrolling) StartCoroutine(MoveTo(3));
-            if (Input.GetKeyDown(KeyCode.Space) && !m_IsScrolling) StartCoroutine(MoveTo(0));
-
-            if (Input.GetKeyDown(KeyCode.A) && !m_IsScrolling) StartCoroutine(MoveTo(CurrentPageIndex - 1));
-            if (Input.GetKeyDown(KeyCode.D) && !m_IsScrolling) StartCoroutine(MoveTo(CurrentPageIndex + 1));
-
-            UpdateItemScale();
-
-            // if (!m_IsScrolling)
-            // {
-            //     // 四舍五入当前页面索引
-            //     int roundedPageIndex = Mathf.RoundToInt(CurrentPageIndex);
-
-            //     // 平滑滚动到四舍五入后的页面
-            //     if (roundedPageIndex != CurrentPageIndex)
-            //     {
-            //         move = StartCoroutine(MoveTo(roundedPageIndex));
-            //     }
-            // }
+            if (m_IsScrolling) UpdateItemScale();
         }
 
         private void Start()
@@ -71,15 +55,29 @@ namespace LearnUI.PageScrollView
             InitView();
         }
 
+        public void Move(int pageIndex)
+        {
+            m_MoveCoroutine = StartCoroutine(MoveTo(pageIndex));
+        }
+
+        public void Stop()
+        {
+            if (m_MoveCoroutine != null)
+            {
+                StopCoroutine(m_MoveCoroutine);
+            }
+        }
+
         public IEnumerator MoveTo(int pageIndex)
         {
-            var interval = 1 / (m_PageItems.Count - 1f);
-
-            if (pageIndex == CurrentPageIndex && (m_Rect.horizontalNormalizedPosition % interval) == 0) yield break;
+            if (pageIndex >= m_PageItems.Count || pageIndex < 0)
+            {
+                yield break;
+            }
 
             m_IsScrolling = true;
 
-            var targetPos = pageIndex * interval;
+            var targetPos = pageIndex * Interval;
             float elapsed = 0f;
 
             while (elapsed < m_ScrollSpeed)
@@ -103,18 +101,15 @@ namespace LearnUI.PageScrollView
 
         private void UpdateItemScale()
         {
+            var rectTransform = gameObject.GetComponent<RectTransform>();
             foreach (var item in m_PageItems)
             {
-                var distance = item.GetDistance(gameObject.GetComponent<RectTransform>());
-                if (Mathf.Abs(distance) >= m_ScaleDistance)
-                {
-                    item.ScaleTo(m_MinScale);
-                }
-                else
-                {
-                    var scale = Mathf.Lerp(m_MaxScale, m_MinScale, Mathf.Abs(distance) / m_ScaleDistance);
-                    item.ScaleTo(scale);
-                }
+                var distance = item.GetDistance(rectTransform);
+                var scale = Mathf.Abs(distance) >= m_ScaleDistance
+                    ? m_MinScale
+                    : Mathf.Lerp(m_MaxScale, m_MinScale, Mathf.Abs(distance) / m_ScaleDistance);
+
+                item.ScaleTo(scale);
             }
         }
 
@@ -122,17 +117,14 @@ namespace LearnUI.PageScrollView
         {
             m_IsScrolling = true;
 
-            if (move != null)
-            {
-                StopCoroutine(move);
-            }
+            Stop();
         }
 
         public void OnEndDrag(PointerEventData eventData)
         {
             m_IsScrolling = false;
 
-            move = StartCoroutine(MoveTo(CurrentPageIndex));
+            Move(CurrentPageIndex);
         }
     }
 }
